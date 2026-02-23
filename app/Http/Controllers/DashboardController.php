@@ -145,11 +145,13 @@ class DashboardController extends Controller
     // ==========================================
 
     // 1. Dashboard Utama Puskesmas
+    // 1. Dashboard Utama Puskesmas
     public function indexPuskesmas()
     {
         $unitKerja = Auth::user()->nama_unit;
+        $tahunIni = \Carbon\Carbon::now()->year;
         
-        // Statistik
+        // --- A. Statistik Angka Cepat ---
         $totalPegawai = Pegawai::where('unit_kerja', $unitKerja)->count();
         
         $cutiSaya = PengajuanCuti::whereHas('pegawai', function($q) use ($unitKerja) {
@@ -157,39 +159,107 @@ class DashboardController extends Controller
         })->count();
         
         $pensiunTahunIni = Pegawai::where('unit_kerja', $unitKerja)
-            ->whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) = ?', [Carbon::now()->year])
+            ->whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) = ?', [$tahunIni])
             ->count();
 
-        return view('dashboard.puskesmas', compact('totalPegawai', 'cutiSaya', 'pensiunTahunIni'));
+        // --- B. Data Tabel Mini (Overview 5 Terbaru) ---
+        // 5 Riwayat Cuti Terakhir
+        $cutiTerbaru = PengajuanCuti::whereHas('pegawai', function($q) use ($unitKerja) {
+                $q->where('unit_kerja', $unitKerja);
+            })->with('pegawai')->latest()->take(5)->get();
+
+        // 5 Pegawai dengan Pensiun Paling Dekat
+        $pensiunTerdekat = Pegawai::where('unit_kerja', $unitKerja)
+            ->whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) >= ?', [$tahunIni])
+            ->orderByRaw('DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR) ASC')
+            ->take(5)->get();
+
+        return view('dashboard.puskesmas', compact(
+            'totalPegawai', 'cutiSaya', 'pensiunTahunIni', 'cutiTerbaru', 'pensiunTerdekat'
+        ));
     }
 
     // 2. Halaman Pengajuan Cuti (Puskesmas)
-    public function pageCutiPuskesmas()
+    // 2. Halaman Pengajuan Cuti (Puskesmas)
+    public function pageCutiPuskesmas(Request $request)
     {
         $unitKerja = Auth::user()->nama_unit;
         
-        // List Pegawai untuk Dropdown Form
+        // List Pegawai untuk Dropdown Form (Tidak difilter agar form tambah tetap bisa cari semua)
         $semuaPegawai = Pegawai::where('unit_kerja', $unitKerja)->get();
         
-        // Riwayat Cuti
-        $riwayatCuti = PengajuanCuti::whereHas('pegawai', function($q) use ($unitKerja) {
-                $q->where('unit_kerja', $unitKerja);
-            })->with('pegawai')->latest()->get();
+        // Ambil Input Filter
+        $filterBulan = $request->input('bulan');
+        $filterTahun = $request->input('tahun');
+        $search = $request->input('search');
 
-        return view('puskesmas.cuti', compact('semuaPegawai', 'riwayatCuti'));
+        // Query Riwayat Cuti dengan Filter
+        $query = PengajuanCuti::with('pegawai')->whereHas('pegawai', function($q) use ($unitKerja, $search) {
+            $q->where('unit_kerja', $unitKerja);
+            
+            // Logika Pencarian Nama/NIP
+            if ($search) {
+                $q->where(function($subQuery) use ($search) {
+                    $subQuery->where('nama_lengkap', 'like', '%' . $search . '%')
+                             ->orWhere('nip', 'like', '%' . $search . '%');
+                });
+            }
+        });
+
+        // Logika Filter Bulan
+        if ($filterBulan) {
+            $query->whereMonth('tanggal_mulai', $filterBulan);
+        }
+
+        // Logika Filter Tahun
+        if ($filterTahun) {
+            $query->whereYear('tanggal_mulai', $filterTahun);
+        }
+
+        $riwayatCuti = $query->latest()->get();
+
+        return view('puskesmas.cuti', compact('semuaPegawai', 'riwayatCuti', 'filterBulan', 'filterTahun', 'search'));
     }
 
     // 3. Halaman Data Pegawai (CRUD Master Data) - FITUR BARU
-    public function pageDataPegawai()
+    // 3. Halaman Data Pegawai (Puskesmas) - Update Search & Sort
+    public function pageDataPegawai(Request $request)
     {
         $unitKerja = Auth::user()->nama_unit;
         
-        // Ambil semua pegawai di unit ini (untuk diedit/dihapus)
-        $semuaPegawai = Pegawai::where('unit_kerja', $unitKerja)
-            ->orderBy('nama_lengkap', 'asc')
-            ->get();
+        // Ambil input pencarian dan pengurutan
+        $search = $request->input('search');
+        $sort = $request->input('sort', 'nama_asc'); // Default urut nama A-Z
 
-        return view('puskesmas.pegawai', compact('semuaPegawai'));
+        // Query dasar (Hanya ambil pegawai di unit puskesmas yang login)
+        $query = Pegawai::where('unit_kerja', $unitKerja);
+
+        // 1. Fitur Pencarian (Nama atau NIP)
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('nama_lengkap', 'like', '%' . $search . '%')
+                  ->orWhere('nip', 'like', '%' . $search . '%');
+            });
+        }
+
+        // 2. Fitur Urutkan Berdasarkan (Sorting)
+        if ($sort == 'tgl_lahir_asc') {
+            $query->orderBy('tanggal_lahir', 'asc'); // Paling Tua
+        } elseif ($sort == 'tgl_lahir_desc') {
+            $query->orderBy('tanggal_lahir', 'desc'); // Paling Muda
+        } elseif ($sort == 'pensiun_terdekat') {
+            // Rumus SQL: Tanggal Lahir + Batas Usia Pensiun
+            $query->orderByRaw('DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR) ASC');
+        } elseif ($sort == 'pensiun_terlama') {
+            $query->orderByRaw('DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR) DESC');
+        } else {
+            $query->orderBy('nama_lengkap', 'asc'); // Default A-Z
+        }
+
+        // Gunakan pagination agar rapi (20 data per halaman)
+        $semuaPegawai = $query->paginate(20);
+
+        return view('puskesmas.pegawai', compact('semuaPegawai', 'search', 'sort'));
     }
 
     // 4. Halaman E-Pensiun (Monitoring 1 Tahun) - FITUR BARU

@@ -20,6 +20,7 @@ class PengajuanCuti extends Model
         'file_sk_resmi',
         'status',
         'keterangan_admin',
+        'alasan',
     ];
 
     // Relasi: Cuti ini milik siapa?

@@ -9,29 +9,29 @@ class PengajuanCutiController extends Controller
 {
     public function store(Request $request)
     {
-        // 1. Validasi
         $request->validate([
             'id_pegawai' => 'required',
             'jenis_cuti' => 'required',
             'tanggal_mulai' => 'required|date',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'file_permohonan' => 'required|mimes:pdf|max:2048', // Maks 2MB
+            'alasan' => 'nullable',
+            // Sesuaikan dengan prototype: PDF/JPG max 5MB (5120 KB)
+            'file_permohonan' => 'required|mimes:pdf,jpg,jpeg,png|max:5120', 
         ]);
 
-        // 2. Upload File
         $path = $request->file('file_permohonan')->store('surat_cuti', 'public');
 
-        // 3. Simpan ke Database
         PengajuanCuti::create([
             'id_pegawai' => $request->id_pegawai,
             'jenis_cuti' => $request->jenis_cuti,
             'tanggal_mulai' => $request->tanggal_mulai,
             'tanggal_selesai' => $request->tanggal_selesai,
+            'alasan' => $request->alasan,
             'file_permohonan' => $path,
             'status' => 'menunggu',
         ]);
 
-        return back()->with('success', 'Pengajuan cuti berhasil dikirim! Menunggu persetujuan Dinas.');
+        return back()->with('success', 'Pengajuan cuti berhasil dikirim!');
     }
 
     public function verifikasi(Request $request, $id)
