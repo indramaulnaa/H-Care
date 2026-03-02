@@ -60,4 +60,24 @@ class PengajuanCutiController extends Controller
             return back()->with('success', 'Cuti disetujui & SK berhasil diupload!');
         }
     }
+
+    // Fitur Batalkan Pengajuan (Hapus)
+    public function destroy($id)
+    {
+        $cuti = PengajuanCuti::findOrFail($id);
+
+        // Pastikan hanya pengajuan berstatus 'menunggu' yang bisa dibatalkan
+        if ($cuti->status == 'menunggu') {
+            
+            // Hapus file dokumen dari penyimpanan agar tidak menumpuk
+            if ($cuti->file_permohonan && \Storage::disk('public')->exists($cuti->file_permohonan)) {
+                \Storage::disk('public')->delete($cuti->file_permohonan);
+            }
+            
+            $cuti->delete();
+            return back()->with('success', 'Pengajuan cuti berhasil dibatalkan dan dihapus.');
+        }
+
+        return back()->withErrors(['error' => 'Gagal membatalkan. Pengajuan cuti ini sudah diproses oleh Dinas Kesehatan.']);
+    }
 }

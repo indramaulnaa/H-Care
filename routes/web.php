@@ -63,6 +63,10 @@ Route::middleware(['auth'])->group(function () {
     // 1. Modul Pengajuan Cuti
     Route::get('/puskesmas/cuti', [DashboardController::class, 'pageCutiPuskesmas'])->name('puskesmas.cuti');
     Route::post('/cuti/store', [PengajuanCutiController::class, 'store'])->name('cuti.store'); // Simpan Cuti
+    // CRUD Pengajuan Cuti
+    Route::post('/cuti/store', [PengajuanCutiController::class, 'store'])->name('cuti.store');
+    // TAMBAHKAN BARIS INI UNTUK FITUR BATAL:
+    Route::delete('/cuti/delete/{id}', [PengajuanCutiController::class, 'destroy'])->name('cuti.destroy');
     
     // 2. Modul Data Pegawai (Master Data - Tambah/Edit/Hapus)
     Route::get('/puskesmas/pegawai', [DashboardController::class, 'pageDataPegawai'])->name('puskesmas.pegawai');
@@ -75,5 +79,8 @@ Route::middleware(['auth'])->group(function () {
     // 3. Modul E-Pensiun (Monitoring 1 Tahun & Upload Berkas)
     Route::get('/puskesmas/pensiun', [DashboardController::class, 'pagePensiunPuskesmas'])->name('puskesmas.pensiun');
     Route::post('/pensiun/upload', [BerkasPensiunController::class, 'store'])->name('pensiun.store'); // Upload Berkas
+
+    // Route Permintaan Akses Upload Pensiun
+    Route::post('/puskesmas/pensiun/request-akses/{id}', [DashboardController::class, 'requestBukaAksesPensiun'])->name('puskesmas.request_akses');
 
 });

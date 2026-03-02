@@ -15,41 +15,10 @@
         </div>
     @endif
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-3">
-            <form action="{{ route('puskesmas.pensiun') }}" method="GET" class="row g-2 align-items-center">
-                <div class="col-md-auto text-muted"><i class="bi bi-funnel-fill"></i> Filter:</div>
-                
-                <div class="col-md-3">
-                    <select name="bulan" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">-- Semua Bulan --</option>
-                        @for($i=1; $i<=12; $i++)
-                            <option value="{{ $i }}" {{ $filterBulan == $i ? 'selected' : '' }}>
-                                {{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
-                            </option>
-                        @endfor
-                    </select>
-                </div>
-
-                <div class="col-md-2">
-                    <select name="tahun" class="form-select form-select-sm" onchange="this.form.submit()">
-                        @for($y=date('Y'); $y<=date('Y')+5; $y++)
-                            <option value="{{ $y }}" {{ $filterTahun == $y ? 'selected' : '' }}>{{ $y }}</option>
-                        @endfor
-                    </select>
-                </div>
-
-                <div class="col-md-auto ms-auto">
-                    <a href="{{ route('puskesmas.pensiun') }}" class="btn btn-sm btn-light border text-muted">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reset
-                    </a>
-                </div>
-            </form>
-        </div>
-    </div>
-
     @if($pensiunBulanIniRealtime->count() > 0)
-    <div class="card border-warning bg-warning bg-opacity-10 mb-4">
+    <div class="card border-warning bg-warning bg-opacity-10 mb-4" id="peringatanPensiunBox">
+        <button type="button" class="btn-close position-absolute top-0 end-0 m-3" onclick="tutupPeringatan()" title="Tutup peringatan ini"></button>
+        
         <div class="card-body d-flex align-items-start gap-3">
             <div class="bg-warning text-dark rounded p-2 mt-1">
                 <i class="bi bi-exclamation-triangle-fill fs-4"></i>
@@ -61,7 +30,7 @@
                 </div>
                 <p class="text-muted small mb-2">Segera lengkapi dokumen pensiun untuk pegawai berikut:</p>
                 
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex flex-wrap gap-2 pe-4"> 
                     @foreach($pensiunBulanIniRealtime as $p)
                     <div class="bg-white border rounded p-2 px-3 shadow-sm d-flex align-items-center gap-2">
                         <i class="bi bi-person-circle text-secondary"></i>
@@ -84,7 +53,7 @@
         <div class="col-md-3">
             <div class="card border-0 shadow-sm border-start border-4 border-primary h-100">
                 <div class="card-body">
-                    <div class="text-muted small mb-1">Total Pegawai Pensiun</div>
+                    <div class="text-muted small mb-1">Total Pensiun ({{ $filterTahun ?? date('Y') }})</div>
                     <h2 class="fw-bold m-0 text-primary">{{ $stats['total'] }}</h2>
                 </div>
             </div>
@@ -115,17 +84,55 @@
         </div>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <form action="{{ route('puskesmas.pensiun') }}" method="GET" class="row g-2 align-items-center">
+                <div class="col-md-auto text-muted"><i class="bi bi-funnel-fill"></i> Filter:</div>
+                
+                <div class="col-md-2">
+                    <select name="bulan" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">-- Semua Bulan --</option>
+                        @for($i=1; $i<=12; $i++)
+                            <option value="{{ $i }}" {{ (isset($filterBulan) && $filterBulan == $i) ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::create()->month($i)->translatedFormat('F') }}
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <select name="tahun" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @for($y=date('Y'); $y<=date('Y')+5; $y++)
+                            <option value="{{ $y }}" {{ (isset($filterTahun) && $filterTahun == $y) ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="search" class="form-control" placeholder="Cari Nama / NIP..." value="{{ $search ?? '' }}">
+                        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+
+                <div class="col-md-auto ms-auto">
+                    <a href="{{ route('puskesmas.pensiun') }}" class="btn btn-sm btn-light border text-muted">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-light text-secondary">
                         <tr>
-                            <th class="ps-4">Nama Pegawai</th>
-                            <th>NIP</th>
-                            <th>Tgl Lahir</th>
+                            <th class="ps-4">Nama & NIP</th>
                             <th>Usia</th>
-                            <th>Tanggal Pensiun</th>
+                            <th>Tgl Lahir & Pensiun</th>
                             <th>Status Dokumen</th>
                             <th class="text-end pe-4">Aksi</th>
                         </tr>
@@ -135,18 +142,18 @@
                             @php
                                 $tglPensiun = \Carbon\Carbon::parse($p->tanggal_lahir)->addYears($p->batas_usia_pensiun);
                                 $berkas = $p->berkas_pensiun;
-                                // Menghitung usia saat ini
                                 $usiaSekarang = \Carbon\Carbon::parse($p->tanggal_lahir)->age;
                             @endphp
                         <tr>
                             <td class="ps-4">
-                                <div class="fw-bold">{{ $p->nama_lengkap }}</div>
+                                <div class="fw-bold text-dark">{{ $p->nama_lengkap }}</div>
+                                <small class="text-muted">{{ $p->nip }}</small>
                             </td>
-                            <td>{{ $p->nip }}</td>
-                            <td>{{ $p->tanggal_lahir->format('d F Y') }}</td>
                             <td>{{ $usiaSekarang }} Tahun</td>
-                            <td class="fw-bold {{ $tglPensiun->isPast() ? 'text-danger' : 'text-danger' }}">
-                                {{ $tglPensiun->translatedFormat('d F Y') }}
+                            
+                            <td>
+                                <div class="text-dark"><small class="text-muted">Lahir:</small> {{ $p->tanggal_lahir->format('d M Y') }}</div>
+                                <div class="text-danger fw-bold"><small class="text-muted fw-normal">Pensiun:</small> {{ $tglPensiun->translatedFormat('d M Y') }}</div>
                             </td>
                             
                             <td>
@@ -163,13 +170,22 @@
 
                             <td class="text-end pe-4">
                                 @if(!$p->is_pensiun_open)
-                                    <button class="btn btn-light btn-sm border text-muted" disabled title="Menunggu Dinkes Membuka Akses">
-                                        <i class="bi bi-lock-fill"></i> Terkunci
-                                    </button>
+                                    @if($p->is_request_open_access)
+                                        <button class="btn btn-warning btn-sm bg-opacity-25 text-dark border-warning" disabled>
+                                            <i class="bi bi-hourglass-split"></i> Menunggu Dinkes
+                                        </button>
+                                    @else
+                                        <form action="{{ route('puskesmas.request_akses', $p->id) }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill shadow-sm">
+                                                <i class="bi bi-bell-fill"></i> Minta Akses Upload
+                                            </button>
+                                        </form>
+                                    @endif
                                 @else
                                     @if(!$berkas)
                                         <button class="btn btn-light border btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#uploadModal{{ $p->id }}">
-                                            <i class="bi bi-upload"></i> Upload Berkas
+                                            <i class="bi bi-upload text-primary"></i> Upload Berkas
                                         </button>
                                     @elseif($berkas->status == 'menunggu')
                                         <span class="text-muted small fst-italic">Proses Dinkes...</span>
@@ -223,9 +239,9 @@
 
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="bi bi-clipboard-x fs-1 d-block mb-2 opacity-50"></i>
-                                Tidak ada data pegawai pensiun di filter tahun/bulan ini.
+                                Tidak ada data pegawai pensiun di filter ini.
                             </td>
                         </tr>
                         @endforelse
@@ -234,4 +250,22 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Cek session untuk menyembunyikan box kuning
+            if(sessionStorage.getItem('hidePeringatanPensiun') === 'true') {
+                const box = document.getElementById('peringatanPensiunBox');
+                if(box) box.style.display = 'none'; 
+            }
+        });
+
+        function tutupPeringatan() {
+            const box = document.getElementById('peringatanPensiunBox');
+            if(box) {
+                box.style.display = 'none';
+                sessionStorage.setItem('hidePeringatanPensiun', 'true');
+            }
+        }
+    </script>
 @endsection

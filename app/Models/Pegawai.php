@@ -20,6 +20,7 @@ class Pegawai extends Model
         'unit_kerja',
         'batas_usia_pensiun',
         'is_pensiun_open', // <--- PENTING: Tambahkan ini!
+        'is_request_open_access', // <--- Tambahkan ini juga!
     ];
 
     protected $casts = [

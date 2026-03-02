@@ -98,11 +98,15 @@ class DashboardController extends Controller
     }
 
     // 3. Fungsi Baru: Membuka Akses Upload (Gatekeeper)
+    // Fungsi Milik Admin Dinkes (Update)
     public function bukaAksesPensiun($id)
     {
         $pegawai = Pegawai::findOrFail($id);
-        $pegawai->update(['is_pensiun_open' => 1]); // Buka Gembok (Set jadi 1)
-        
+        $pegawai->update([
+            'is_pensiun_open' => 1,          // Buka gembok utama
+            'is_request_open_access' => 0    // Reset notifikasi permintaan
+        ]); 
+
         return back()->with('success', 'Akses upload dokumen dibuka untuk pegawai ini.');
     }
 
@@ -181,23 +185,19 @@ class DashboardController extends Controller
 
     // 2. Halaman Pengajuan Cuti (Puskesmas)
     // 2. Halaman Pengajuan Cuti (Puskesmas)
+    // 2. Halaman Pengajuan Cuti (Puskesmas)
     public function pageCutiPuskesmas(Request $request)
     {
         $unitKerja = Auth::user()->nama_unit;
         
-        // List Pegawai untuk Dropdown Form (Tidak difilter agar form tambah tetap bisa cari semua)
         $semuaPegawai = Pegawai::where('unit_kerja', $unitKerja)->get();
         
-        // Ambil Input Filter
         $filterBulan = $request->input('bulan');
         $filterTahun = $request->input('tahun');
         $search = $request->input('search');
 
-        // Query Riwayat Cuti dengan Filter
         $query = PengajuanCuti::with('pegawai')->whereHas('pegawai', function($q) use ($unitKerja, $search) {
             $q->where('unit_kerja', $unitKerja);
-            
-            // Logika Pencarian Nama/NIP
             if ($search) {
                 $q->where(function($subQuery) use ($search) {
                     $subQuery->where('nama_lengkap', 'like', '%' . $search . '%')
@@ -206,15 +206,50 @@ class DashboardController extends Controller
             }
         });
 
-        // Logika Filter Bulan
-        if ($filterBulan) {
-            $query->whereMonth('tanggal_mulai', $filterBulan);
-        }
+        if ($filterBulan) { $query->whereMonth('tanggal_mulai', $filterBulan); }
+        if ($filterTahun) { $query->whereYear('tanggal_mulai', $filterTahun); }
 
-        // Logika Filter Tahun
-        if ($filterTahun) {
-            $query->whereYear('tanggal_mulai', $filterTahun);
+        // --- LOGIKA BARU: FITUR EXPORT EXCEL (CSV) ---
+        if ($request->has('export')) {
+            $dataExport = $query->latest()->get();
+            $fileName = 'Rekap_Cuti_' . str_replace(' ', '_', $unitKerja) . '_' . date('d-m-Y') . '.csv';
+            
+            $headers = [
+                "Content-type"        => "text/csv",
+                "Content-Disposition" => "attachment; filename=$fileName",
+                "Pragma"              => "no-cache",
+                "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+                "Expires"             => "0"
+            ];
+
+            $callback = function() use($dataExport) {
+                $file = fopen('php://output', 'w');
+                // Header Kolom Tabel
+                fputcsv($file, ['No', 'NIP', 'Nama Pegawai', 'Jenis Cuti', 'Tanggal Mulai', 'Tanggal Selesai', 'Lama Cuti (Hari)', 'Status']);
+
+                $no = 1;
+                foreach ($dataExport as $row) {
+                    $tglMulai = \Carbon\Carbon::parse($row->tanggal_mulai);
+                    $tglSelesai = \Carbon\Carbon::parse($row->tanggal_selesai);
+                    $hari = $tglMulai->diffInDays($tglSelesai) + 1; // +1 agar hari awal ikut terhitung
+
+                    fputcsv($file, [
+                        $no++,
+                        $row->pegawai->nip,
+                        $row->pegawai->nama_lengkap,
+                        $row->jenis_cuti,
+                        $tglMulai->format('d/m/Y'),
+                        $tglSelesai->format('d/m/Y'),
+                        $hari,
+                        strtoupper($row->status)
+                    ]);
+                }
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
         }
+        // ---------------------------------------------
 
         $riwayatCuti = $query->latest()->get();
 
@@ -304,5 +339,14 @@ class DashboardController extends Controller
         return view('puskesmas.pensiun', compact(
             'dataPensiun', 'stats', 'pensiunBulanIniRealtime', 'filterTahun', 'filterBulan'
         ));
+    }
+
+    // Fungsi untuk Admin Puskesmas Meminta Akses
+    public function requestBukaAksesPensiun($id)
+    {
+        $pegawai = Pegawai::findOrFail($id);
+        $pegawai->update(['is_request_open_access' => 1]); // Set jadi 1 (Meminta)
+
+        return back()->with('success', 'Permintaan buka akses berhasil dikirim. Menunggu persetujuan Admin Dinkes.');
     }
 }

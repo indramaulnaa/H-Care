@@ -106,10 +106,9 @@
                     <thead class="bg-light text-secondary">
                         <tr>
                             <th class="ps-4">Nama Pegawai</th>
-                            <th>NIP</th>
                             <th>Unit Kerja</th>
                             <th>Usia</th>
-                            <th>Tanggal Pensiun</th>
+                            <th>Tgl Lahir & Pensiun</th>
                             <th>Status Akses</th>
                             <th>Status Dokumen</th>
                             <th class="text-end pe-4">Aksi</th>
@@ -120,14 +119,19 @@
                             @php
                                 $tglPensiun = \Carbon\Carbon::parse($p->tanggal_lahir)->addYears($p->batas_usia_pensiun);
                                 $berkas = $p->berkas_pensiun;
+                                $usiaSekarang = \Carbon\Carbon::parse($p->tanggal_lahir)->age;
                             @endphp
                         <tr>
-                            <td class="ps-4 fw-bold">{{ $p->nama_lengkap }}</td>
-                            <td>{{ $p->nip }}</td>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ $p->nama_lengkap }}</div>
+                                <small class="text-muted">{{ $p->nip }}</small>
+                            </td>
                             <td>{{ $p->unit_kerja }}</td>
-                            <td>{{ $p->batas_usia_pensiun }} Tahun</td>
-                            <td class="fw-bold {{ $tglPensiun->isPast() ? 'text-danger' : 'text-dark' }}">
-                                {{ $tglPensiun->translatedFormat('d F Y') }}
+                            <td>{{ $usiaSekarang }} Tahun</td>
+                            
+                            <td>
+                                <div class="text-dark"><small class="text-muted">Lahir:</small> {{ $p->tanggal_lahir->format('d M Y') }}</div>
+                                <div class="text-danger fw-bold"><small class="text-muted fw-normal">Pensiun:</small> {{ $tglPensiun->translatedFormat('d M Y') }}</div>
                             </td>
                             
                             <td>
@@ -154,9 +158,15 @@
                                 @if(!$p->is_pensiun_open)
                                     <form action="{{ route('dinkes.buka_akses', $p->id) }}" method="POST">
                                         @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                            <i class="bi bi-key-fill"></i> Buka Akses
-                                        </button>
+                                        @if($p->is_request_open_access)
+                                            <button type="submit" class="btn btn-sm btn-warning rounded-pill px-3 shadow" title="Puskesmas meminta akses">
+                                                <i class="bi bi-bell-fill"></i> Buka Akses (Diminta!)
+                                            </button>
+                                        @else
+                                            <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                <i class="bi bi-key-fill"></i> Buka Akses
+                                            </button>
+                                        @endif
                                     </form>
                                 @else
                                     @if($berkas && $berkas->status == 'menunggu')
@@ -164,7 +174,7 @@
                                             Verifikasi
                                         </button>
                                     @elseif($berkas && $berkas->status == 'disetujui')
-                                        <button class="btn btn-sm btn-light border" disabled>Selesai</button>
+                                        <button class="btn btn-sm btn-light border text-success" disabled><i class="bi bi-check2-all"></i> Selesai</button>
                                     @else
                                         <button class="btn btn-sm btn-light border text-muted" disabled>Menunggu Upload</button>
                                     @endif
@@ -208,7 +218,7 @@
 
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
                                 Tidak ada data pegawai pensiun sesuai filter ini.
                             </td>
