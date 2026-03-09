@@ -18,7 +18,7 @@ class AuthController extends Controller
     {
         // Validasi input
         $request->validate([
-            'username' => 'required', // Kita pakai username, bukan email
+            'username' => 'required', 
             'password' => 'required',
         ]);
 
@@ -26,13 +26,13 @@ class AuthController extends Controller
         if (Auth::attempt($request->only('username', 'password'))) {
             $request->session()->regenerate();
 
-            // Cek Role & Arahkan ke Dashboard yang sesuai
+            // Cek Role & Arahkan ke Dashboard yang sesuai secara PAKSA (Tanpa intended)
             $role = Auth::user()->role;
 
             if ($role === 'admin_dinkes') {
-                return redirect()->intended('/dashboard/dinkes');
+                return redirect('/dashboard/dinkes'); // <-- Diubah di sini
             } elseif ($role === 'admin_puskesmas') {
-                return redirect()->intended('/dashboard/puskesmas');
+                return redirect('/dashboard/puskesmas'); // <-- Diubah di sini
             }
 
             // Default jika role tidak dikenali

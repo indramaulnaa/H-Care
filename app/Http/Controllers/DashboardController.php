@@ -16,67 +16,128 @@ class DashboardController extends Controller
     // ==========================================
 
     // 1. Dashboard Utama Dinkes (Statistik)
+    // Dashboard Utama Dinas Kesehatan
     public function indexDinkes()
     {
-        $tahunIni = Carbon::now()->year;
+        $tahunIni = \Carbon\Carbon::now()->year;
 
-        // Hitung Statistik
+        // --- A. Statistik Angka Cepat (Seluruh Unit) ---
         $totalPegawai = Pegawai::count();
-        $totalPensiunTahunIni = Pegawai::whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) = ?', [$tahunIni])->count();
+        
         $cutiPending = PengajuanCuti::where('status', 'menunggu')->count();
-        $berkasPending = BerkasPensiun::where('status', 'menunggu')->count();
+        
+        $pensiunTahunIni = Pegawai::whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) = ?', [$tahunIni])->count();
 
-        return view('dashboard.dinkes', compact('totalPegawai', 'totalPensiunTahunIni', 'cutiPending', 'berkasPending'));
+        // --- B. Data Tabel Mini (Overview Cepat) ---
+        // 5 Cuti Terbaru yang BUTUH VERIFIKASI
+        $cutiTerbaru = PengajuanCuti::with('pegawai')
+            ->where('status', 'menunggu') // Fokus pada yang pending
+            ->latest()
+            ->take(5)
+            ->get();
+
+        // 5 Pegawai dengan Pensiun Terdekat di seluruh unit
+        $pensiunTerdekat = Pegawai::whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) >= ?', [$tahunIni])
+            ->orderByRaw('DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR) ASC')
+            ->take(5)
+            ->get();
+
+        return view('dashboard.dinkes', compact(
+            'totalPegawai', 'cutiPending', 'pensiunTahunIni', 'cutiTerbaru', 'pensiunTerdekat'
+        ));
     }
 
     // 2. Halaman Verifikasi Cuti (Dinkes)
-    public function pageCuti()
+    // Halaman Verifikasi Cuti (Dinas Kesehatan)
+    public function pageCuti(Request $request)
     {
-        $dataCuti = PengajuanCuti::with('pegawai')
-            ->orderByRaw("FIELD(status, 'menunggu', 'disetujui', 'ditolak')")
-            ->latest()
-            ->get();
+        // 1. Ambil daftar semua Unit Kerja dari tabel Pegawai untuk dropdown filter
+        $listUnitKerja = \App\Models\Pegawai::select('unit_kerja')
+                            ->whereNotNull('unit_kerja')
+                            ->where('unit_kerja', '!=', '')
+                            ->distinct()
+                            ->pluck('unit_kerja');
 
-        return view('dinkes.cuti', compact('dataCuti'));
+        // 2. Tangkap input filter yang dikirim dari halaman website
+        $filterBulan = $request->input('bulan');
+        $filterTahun = $request->input('tahun');
+        $filterUnit = $request->input('unit');
+        $search = $request->input('search');
+
+        // 3. Siapkan query dasar pengajuan cuti beserta data pegawainya
+        $query = \App\Models\PengajuanCuti::with('pegawai');
+
+        // 4. Aplikasikan Filter Tanggal & Bulan (Berada di tabel Cuti)
+        if ($filterBulan) {
+            $query->whereMonth('tanggal_mulai', $filterBulan);
+        }
+        if ($filterTahun) {
+            $query->whereYear('tanggal_mulai', $filterTahun);
+        }
+
+        // 5. Aplikasikan Filter Unit Kerja & Pencarian Nama/NIP (Berada di tabel Pegawai)
+        if ($filterUnit || $search) {
+            $query->whereHas('pegawai', function ($q) use ($filterUnit, $search) {
+                if ($filterUnit) {
+                    $q->where('unit_kerja', $filterUnit);
+                }
+                if ($search) {
+                    $q->where(function ($subQ) use ($search) {
+                        $subQ->where('nama_lengkap', 'like', '%' . $search . '%')
+                             ->orWhere('nip', 'like', '%' . $search . '%');
+                    });
+                }
+            });
+        }
+
+        // 6. Ambil data yang sudah difilter (Tampilkan maksimal 15 per halaman agar rapi)
+        $dataCuti = $query->latest()->paginate(15);
+
+        // 7. Kirim semua data dan status filter kembali ke tampilan
+        return view('dinkes.cuti', compact(
+            'dataCuti', 'listUnitKerja', 'filterBulan', 'filterTahun', 'filterUnit', 'search'
+        ));
     }
 
     // 3. Halaman Monitoring Pensiun (Dinkes)
     // 3. Halaman E-Pensiun (Monitoring & Filter)
+    // Halaman E-Pensiun (Dinas Kesehatan)
     public function pagePensiun(Request $request)
     {
-        $filterTahun = $request->input('tahun', Carbon::now()->year);
         $filterBulan = $request->input('bulan');
-        $filterUnit  = $request->input('unit');
-        $search      = $request->input('search'); // <--- 1. Tangkap Input Cari
+        $filterTahun = $request->input('tahun', date('Y'));
+        $filterUnit = $request->input('unit');
+        $search = $request->input('search');
 
-        $query = Pegawai::query();
+        // 1. Query Dasar (Sertakan relasi berkas agar tidak lambat)
+        $query = \App\Models\Pegawai::with('berkas_pensiun');
 
-        // Filter Tahun
-        $query->whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) = ?', [$filterTahun]);
+        // 2. Data Peringatan: Pensiun Bulan Ini (Seluruh Unit)
+        $bulanIni = date('m');
+        $tahunIni = date('Y');
+        $pensiunBulanIniRealtime = \App\Models\Pegawai::whereRaw('MONTH(DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR)) = ?', [$bulanIni])
+            ->whereRaw('YEAR(DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR)) = ?', [$tahunIni])
+            ->get();
 
-        // Filter Bulan
+        // 3. Filter Tabel Utama
+        $query->whereRaw('YEAR(DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR)) = ?', [$filterTahun]);
+
         if ($filterBulan) {
-            $query->whereRaw('MONTH(tanggal_lahir) = ?', [$filterBulan]);
+            $query->whereRaw('MONTH(DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR)) = ?', [$filterBulan]);
         }
-
-        // Filter Unit
         if ($filterUnit) {
             $query->where('unit_kerja', $filterUnit);
         }
-
-        // 2. Logic Pencarian (Nama atau NIP)
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('nama_lengkap', 'like', '%' . $search . '%')
-                  ->orWhere('nip', 'like', '%' . $search . '%');
+                $q->where('nama_lengkap', 'like', '%'.$search.'%')
+                  ->orWhere('nip', 'like', '%'.$search.'%');
             });
         }
 
-        $dataPensiun = $query->with('berkas_pensiun')
-            ->orderByRaw('MONTH(tanggal_lahir) ASC')
-            ->get();
+        $dataPensiun = $query->get();
 
-        // Statistik (Logic tetap sama)
+        // 4. Kalkulasi Statistik Pensiun
         $stats = [
             'total' => $dataPensiun->count(),
             'belum_upload' => $dataPensiun->where('berkas_pensiun', null)->count(),
@@ -84,16 +145,16 @@ class DashboardController extends Controller
             'lengkap' => $dataPensiun->where('berkas_pensiun.status', 'disetujui')->count(),
         ];
 
-        $pensiunBulanIniRealtime = Pegawai::whereRaw('MONTH(tanggal_lahir) = ?', [Carbon::now()->month])
-            ->whereRaw('(YEAR(tanggal_lahir) + batas_usia_pensiun) = ?', [Carbon::now()->year])
-            ->get();
+        // 5. Ambil daftar unit kerja
+        $listUnitKerja = \App\Models\Pegawai::select('unit_kerja')
+            ->whereNotNull('unit_kerja')
+            ->where('unit_kerja', '!=', '')
+            ->distinct()
+            ->pluck('unit_kerja');
 
-        $listUnitKerja = Pegawai::select('unit_kerja')->distinct()->orderBy('unit_kerja')->pluck('unit_kerja');
-
-        // Jangan lupa kirim $search ke view agar input text tidak hilang
         return view('dinkes.pensiun', compact(
-            'dataPensiun', 'stats', 'pensiunBulanIniRealtime', 'listUnitKerja',
-            'filterTahun', 'filterBulan', 'filterUnit', 'search'
+            'dataPensiun', 'stats', 'filterBulan', 'filterTahun', 
+            'filterUnit', 'search', 'listUnitKerja', 'pensiunBulanIniRealtime'
         ));
     }
 
@@ -111,21 +172,17 @@ class DashboardController extends Controller
     }
 
     // 4. Halaman Data Pegawai (Master Data Se-Kabupaten)
+    // Halaman Data Pegawai (Semua Unit) - Dinas Kesehatan
     public function pageDataPegawaiDinkes(Request $request)
     {
-        // Ambil Input Filter
         $search = $request->input('search');
+        $sort = $request->input('sort', 'nama_asc');
         $filterUnit = $request->input('unit');
 
-        // Query Dasar
-        $query = Pegawai::query();
+        // 1. Query Dasar
+        $query = \App\Models\Pegawai::query();
 
-        // 1. Filter Unit Kerja
-        if ($filterUnit) {
-            $query->where('unit_kerja', $filterUnit);
-        }
-
-        // 2. Fitur Pencarian (Nama / NIP)
+        // 2. Filter Pencarian (Nama & NIP)
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('nama_lengkap', 'like', '%' . $search . '%')
@@ -133,15 +190,81 @@ class DashboardController extends Controller
             });
         }
 
-        // Ambil data dengan Pagination (agar halaman tidak berat jika data ribuan)
-        $semuaPegawai = $query->orderBy('unit_kerja', 'asc')
-            ->orderBy('nama_lengkap', 'asc')
-            ->paginate(20); // Menampilkan 20 data per halaman
+        // 3. Filter Unit Kerja
+        if ($filterUnit) {
+            $query->where('unit_kerja', $filterUnit);
+        }
 
-        // List Unit untuk Dropdown
-        $listUnitKerja = Pegawai::select('unit_kerja')->distinct()->orderBy('unit_kerja')->pluck('unit_kerja');
+        // 4. Sorting (Pengurutan)
+        switch ($sort) {
+            case 'tgl_lahir_asc':
+                $query->orderBy('tanggal_lahir', 'asc');
+                break;
+            case 'tgl_lahir_desc':
+                $query->orderBy('tanggal_lahir', 'desc');
+                break;
+            case 'pensiun_terdekat':
+                $query->orderByRaw('DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR) ASC');
+                break;
+            case 'pensiun_terlama':
+                $query->orderByRaw('DATE_ADD(tanggal_lahir, INTERVAL batas_usia_pensiun YEAR) DESC');
+                break;
+            case 'nama_asc':
+            default:
+                $query->orderBy('nama_lengkap', 'asc');
+                break;
+        }
 
-        return view('dinkes.pegawai', compact('semuaPegawai', 'listUnitKerja', 'search', 'filterUnit'));
+        // --- 5. LOGIKA EXPORT EXCEL (CSV) ---
+        if ($request->has('export')) {
+            $dataExport = $query->get();
+            $fileName = 'Data_Pegawai_SeKabupaten_' . date('d-m-Y') . '.csv';
+            
+            $headers = [
+                "Content-type"        => "text/csv",
+                "Content-Disposition" => "attachment; filename=$fileName",
+                "Pragma"              => "no-cache",
+                "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+                "Expires"             => "0"
+            ];
+
+            $callback = function() use($dataExport) {
+                $file = fopen('php://output', 'w');
+                // Header Kolom Excel
+                fputcsv($file, ['No', 'NIP', 'Nama Pegawai', 'Jabatan', 'Unit Kerja', 'Tanggal Lahir', 'Batas Pensiun', 'Estimasi Tanggal Pensiun']);
+
+                $no = 1;
+                foreach ($dataExport as $row) {
+                    $tglPensiun = \Carbon\Carbon::parse($row->tanggal_lahir)->addYears($row->batas_usia_pensiun)->format('d/m/Y');
+                    fputcsv($file, [
+                        $no++,
+                        $row->nip,
+                        $row->nama_lengkap,
+                        $row->jabatan,
+                        $row->unit_kerja,
+                        \Carbon\Carbon::parse($row->tanggal_lahir)->format('d/m/Y'),
+                        $row->batas_usia_pensiun . ' Tahun',
+                        $tglPensiun
+                    ]);
+                }
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+        }
+        // ------------------------------------
+
+        // Eksekusi Query untuk Tampilan Pagination
+        $semuaPegawai = $query->paginate(15);
+
+        // Ambil daftar unit kerja untuk dropdown filter
+        $listUnitKerja = \App\Models\Pegawai::select('unit_kerja')
+            ->whereNotNull('unit_kerja')
+            ->where('unit_kerja', '!=', '')
+            ->distinct()
+            ->pluck('unit_kerja');
+
+        return view('dinkes.pegawai', compact('semuaPegawai', 'search', 'sort', 'filterUnit', 'listUnitKerja'));
     }
 
     // ==========================================

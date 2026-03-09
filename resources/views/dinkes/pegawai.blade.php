@@ -1,196 +1,242 @@
 @extends('layouts.admin')
 @section('title', 'Data Pegawai Se-Kabupaten')
 @section('content')
-    <div class="mb-4">
-        <h4 class="fw-bold m-0">Data Pegawai (Master)</h4>
-        <small class="text-muted">Kelola seluruh database pegawai Puskesmas & Dinas Kesehatan.</small>
-    </div>
 
-    @if(session('success')) 
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4">
-            {{ session('success') }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div> 
-    @endif
+    <style>
+        /* Animasi Masuk (Fade In Up) */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up { opacity: 0; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body py-3">
-            <div class="row g-2 align-items-center">
-                <div class="col-md-auto">
-                    <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="bi bi-plus-lg"></i> Tambah Pegawai
-                    </button>
-                </div>
+        /* Efek Hover Tombol Glow */
+        .btn-export-glow { transition: all 0.3s ease; }
+        .btn-export-glow:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(25, 135, 84, 0.3) !important; }
 
-                <div class="col-md-9 ms-auto">
-                    <form action="{{ route('dinkes.pegawai') }}" method="GET">
-                        <div class="row g-2 justify-content-end">
-                            <div class="col-md-4">
-                                <select name="unit" class="form-select" onchange="this.form.submit()">
-                                    <option value="">-- Semua Unit Kerja --</option>
-                                    <option value="Dinas Kesehatan" {{ $filterUnit == 'Dinas Kesehatan' ? 'selected' : '' }}>Dinas Kesehatan</option>
-                                    @foreach($listUnitKerja as $unit)
-                                        @if($unit != 'Dinas Kesehatan')
-                                            <option value="{{ $unit }}" {{ $filterUnit == $unit ? 'selected' : '' }}>{{ $unit }}</option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-5">
-                                <div class="input-group">
-                                    <input type="text" name="search" class="form-control" placeholder="Cari Nama / NIP..." value="{{ $search }}">
-                                    <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-                                </div>
-                            </div>
-                            @if($search || $filterUnit)
-                            <div class="col-md-auto">
-                                <a href="{{ route('dinkes.pegawai') }}" class="btn btn-light border" title="Reset"><i class="bi bi-x-lg"></i></a>
-                            </div>
-                            @endif
-                        </div>
-                    </form>
-                </div>
-            </div>
+        /* Efek Hover Baris Tabel (Floating Row) */
+        .hover-row { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); border-left: 4px solid transparent; }
+        .hover-row:hover { 
+            background-color: #f8fbff !important; 
+            transform: scale(1.01); 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+            border-left: 4px solid #0d6efd; 
+            z-index: 10; 
+            position: relative;
+        }
+
+        /* ----------------------------------------------------
+           ANIMASI MODAL CANGGIH & KARTU PROFIL
+           ---------------------------------------------------- */
+        .modal-backdrop.show {
+            opacity: 0.5 !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            background-color: #000000;
+        }
+        .modal.fade .modal-dialog {
+            transform: scale(0.85) translateY(20px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+        
+        /* Desain Profil Card di dalam Modal */
+        .profile-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+            border-radius: 16px 16px 0 0;
+        }
+        .profile-avatar {
+            width: 80px; height: 80px;
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; margin-bottom: 15px; border: 3px solid rgba(255,255,255,0.5);
+        }
+        .info-box {
+            background-color: #f8f9fa; border-radius: 10px; padding: 12px 15px;
+            border: 1px solid #e9ecef; margin-bottom: 12px;
+        }
+        .info-label { font-size: 11px; color: #6c757d; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px; }
+        .info-value { font-size: 14.5px; color: #212529; font-weight: 600; }
+    </style>
+
+    <div class="d-flex justify-content-between align-items-center mb-4 animate-fade-up">
+        <div>
+            <h4 class="fw-bold m-0 text-dark">Data Pegawai (Master)</h4>
+            <small class="text-muted">Pantau seluruh database pegawai aktif se-Kabupaten Batang.</small>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mb-4 animate-fade-up delay-1" style="border-radius: 12px;">
+        <div class="card-body py-3">
+            <form action="{{ route('dinkes.pegawai') }}" method="GET">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-auto text-muted fw-medium"><i class="bi bi-funnel-fill text-primary"></i> Filter:</div>
+                    
+                    <div class="col-md-3">
+                        <select name="unit" class="form-select form-select-sm border-light shadow-none bg-light" onchange="this.form.submit()">
+                            <option value="">-- Semua Unit Kerja --</option>
+                            @foreach($listUnitKerja as $unit)
+                                <option value="{{ $unit }}" {{ $filterUnit == $unit ? 'selected' : '' }}>{{ $unit }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <select name="sort" class="form-select form-select-sm border-light shadow-none bg-light" onchange="this.form.submit()">
+                            <option value="nama_asc" {{ $sort == 'nama_asc' ? 'selected' : '' }}>Urutkan: Nama (A-Z)</option>
+                            <option value="tgl_lahir_asc" {{ $sort == 'tgl_lahir_asc' ? 'selected' : '' }}>Usia (Paling Tua)</option>
+                            <option value="tgl_lahir_desc" {{ $sort == 'tgl_lahir_desc' ? 'selected' : '' }}>Usia (Paling Muda)</option>
+                            <option value="pensiun_terdekat" {{ $sort == 'pensiun_terdekat' ? 'selected' : '' }}>Pensiun Terdekat</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="search" class="form-control border-light bg-light shadow-none" placeholder="Cari Nama / NIP..." value="{{ $search ?? '' }}">
+                            <button class="btn btn-light border-light text-muted" type="submit"><i class="bi bi-search"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-auto ms-auto d-flex gap-2">
+                        <a href="{{ route('dinkes.pegawai') }}" class="btn btn-sm btn-light border text-muted transition-all hover-shadow" title="Reset"><i class="bi bi-arrow-counterclockwise"></i></a>
+                        <button type="submit" name="export" value="1" class="btn btn-sm btn-success shadow-sm btn-export-glow fw-medium">
+                            <i class="bi bi-file-earmark-excel"></i> Export Data
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm animate-fade-up delay-2" style="border-radius: 12px; overflow: hidden;">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light text-secondary">
+                <table class="table align-middle mb-0">
+                    <thead class="bg-light text-secondary text-uppercase" style="font-size: 12px; letter-spacing: 0.5px;">
                         <tr>
-                            <th class="ps-4">No</th>
-                            <th>Nama & NIP</th>
-                            <th>Unit Kerja</th>
-                            <th>Jabatan</th>
-                            <th>Tgl Lahir / Pensiun</th>
-                            <th class="text-end pe-4">Aksi</th>
+                            <th class="ps-4 py-3 border-0" width="5%">No</th>
+                            <th class="border-0">Nama & NIP</th>
+                            <th class="border-0">Jabatan & Unit Kerja</th>
+                            <th class="border-0">Usia & Estimasi Pensiun</th>
+                            <th class="text-center border-0" width="10%">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="border-top-0">
                         @forelse($semuaPegawai as $index => $p)
                             @php
                                 $tglPensiun = \Carbon\Carbon::parse($p->tanggal_lahir)->addYears($p->batas_usia_pensiun);
+                                $usia = \Carbon\Carbon::parse($p->tanggal_lahir)->age;
                             @endphp
-                        <tr>
-                            <td class="ps-4">{{ $semuaPegawai->firstItem() + $index }}</td>
-                            <td>
-                                <div class="fw-bold">{{ $p->nama_lengkap }}</div>
-                                <small class="text-muted">{{ $p->nip }}</small>
+                        <tr class="hover-row border-bottom">
+                            <td class="ps-4 text-muted fw-medium">{{ $semuaPegawai->firstItem() + $index }}</td>
+                            <td class="py-3">
+                                <div class="fw-bold text-dark" style="font-size: 14.5px;">{{ $p->nama_lengkap }}</div>
+                                <div class="text-muted" style="font-size: 12px; font-family: monospace;">NIP: {{ $p->nip }}</div>
                             </td>
                             <td>
-                                <span class="badge bg-light text-dark border">{{ $p->unit_kerja }}</span>
+                                <div class="fw-medium text-dark">{{ $p->jabatan }}</div>
+                                <div class="text-primary" style="font-size: 12px;"><i class="bi bi-building"></i> {{ $p->unit_kerja }}</div>
                             </td>
-                            <td>{{ $p->jabatan }}</td>
                             <td>
-                                <small class="text-muted d-block">Lahir: {{ $p->tanggal_lahir->format('d M Y') }}</small>
-                                <small class="text-danger fw-bold">Pensiun: {{ $tglPensiun->format('Y') }}</small>
+                                <div class="text-dark"><small class="text-muted">Usia:</small> {{ $usia }} Tahun</div>
+                                <div class="text-danger fw-bold"><small class="text-muted fw-normal">Pensiun:</small> {{ $tglPensiun->translatedFormat('d M Y') }}</div>
                             </td>
-                            <td class="text-end pe-4">
-                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEdit{{ $p->id }}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalHapus{{ $p->id }}">
-                                    <i class="bi bi-trash"></i>
+                            
+                            <td class="text-center pe-3">
+                                <button class="btn btn-outline-primary btn-sm rounded-pill shadow-sm transition-all fw-medium w-100" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                    <i class="bi bi-person-vcard me-1"></i> Profil
                                 </button>
                             </td>
                         </tr>
-
-                        <div class="modal fade" id="modalEdit{{ $p->id }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header bg-primary text-white"><h5 class="modal-title">Edit Data Pegawai</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-                                    <form action="{{ route('pegawai.update', $p->id) }}" method="POST">
-                                        @csrf @method('PUT')
-                                        <div class="modal-body text-start">
-                                            <div class="mb-3"><label>NIP</label><input type="text" name="nip" value="{{ $p->nip }}" class="form-control" required></div>
-                                            <div class="mb-3"><label>Nama</label><input type="text" name="nama_lengkap" value="{{ $p->nama_lengkap }}" class="form-control" required></div>
-                                            <div class="mb-3"><label>Unit Kerja (Mutasi)</label>
-                                                <select name="unit_kerja" class="form-select">
-                                                    <option value="Dinas Kesehatan" {{ $p->unit_kerja == 'Dinas Kesehatan' ? 'selected' : '' }}>Dinas Kesehatan</option>
-                                                    @foreach($listUnitKerja as $u)
-                                                        @if($u != 'Dinas Kesehatan')
-                                                            <option value="{{ $u }}" {{ $p->unit_kerja == $u ? 'selected' : '' }}>{{ $u }}</option>
-                                                        @endif
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                            <div class="row">
-                                                <div class="col-6"><label>Jabatan</label><input type="text" name="jabatan" value="{{ $p->jabatan }}" class="form-control" required></div>
-                                                <div class="col-6"><label>Tgl Lahir</label><input type="date" name="tanggal_lahir" value="{{ $p->tanggal_lahir->format('Y-m-d') }}" class="form-control" required></div>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer"><button type="submit" class="btn btn-primary">Simpan Perubahan</button></div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="modal fade" id="modalHapus{{ $p->id }}" tabindex="-1">
-                            <div class="modal-dialog modal-sm">
-                                <div class="modal-content">
-                                    <div class="modal-body text-center pt-4">
-                                        <i class="bi bi-exclamation-triangle text-danger fs-1"></i>
-                                        <h5 class="mt-3">Hapus Data?</h5>
-                                        <p class="text-muted small">Data {{ $p->nama_lengkap }} akan dihapus permanen.</p>
-                                        <form action="{{ route('pegawai.delete', $p->id) }}" method="POST">
-                                            @csrf @method('DELETE')
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                            <button type="submit" class="btn btn-danger">Ya, Hapus</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         @empty
-                        <tr><td colspan="6" class="text-center py-5 text-muted">Data tidak ditemukan.</td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <div class="p-4 rounded-4 bg-light d-inline-block animate-fade-up">
+                                    <i class="bi bi-person-vcard fs-1 text-secondary opacity-50 d-block mb-2"></i>
+                                    <span class="text-muted fw-medium">Tidak ada data pegawai yang sesuai dengan filter.</span>
+                                </div>
+                            </td>
+                        </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            
-            <div class="p-3">
+
+            <div class="p-3 bg-white border-top">
                 {{ $semuaPegawai->withQueryString()->links() }}
             </div>
         </div>
     </div>
 
-    <div class="modal fade" id="modalTambah" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-success text-white"><h5 class="modal-title">Tambah Pegawai Baru</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-                <form action="{{ route('pegawai.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="mb-3"><label>NIP</label><input type="text" name="nip" class="form-control" required></div>
-                        <div class="mb-3"><label>Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" required></div>
-                        
-                        <div class="mb-3"><label>Unit Kerja</label>
-                            <select name="unit_kerja" class="form-select" required>
-                                <option value="">-- Pilih Unit --</option>
-                                <option value="Dinas Kesehatan">Dinas Kesehatan</option>
-                                @foreach($listUnitKerja as $u)
-                                    @if($u != 'Dinas Kesehatan') <option value="{{ $u }}">{{ $u }}</option> @endif
-                                @endforeach
-                                <option value="Lainnya">Lainnya (Input Manual nanti)</option>
-                            </select>
-                        </div>
 
-                        <div class="row">
-                            <div class="col-6 mb-3"><label>Jabatan</label><input type="text" name="jabatan" class="form-control" required></div>
-                            <div class="col-6 mb-3"><label>Tgl Lahir</label><input type="date" name="tanggal_lahir" class="form-control" required></div>
+    @foreach($semuaPegawai as $p)
+        @php
+            $tglPensiun = \Carbon\Carbon::parse($p->tanggal_lahir)->addYears($p->batas_usia_pensiun);
+            $usia = \Carbon\Carbon::parse($p->tanggal_lahir)->age;
+        @endphp
+        <div class="modal fade" id="detailModal{{ $p->id }}" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                    
+                    <div class="profile-header position-relative">
+                        <button type="button" class="btn-close btn-close-white shadow-none position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+                        <div class="profile-avatar shadow-sm">
+                            <i class="bi bi-person-fill"></i>
                         </div>
-                        <div class="mb-3"><label>Batas Pensiun</label>
-                            <select name="batas_usia_pensiun" class="form-select">
-                                <option value="58">58 Tahun (Umum)</option>
-                                <option value="60">60 Tahun (Fungsional)</option>
-                            </select>
+                        <h4 class="fw-bold m-0">{{ $p->nama_lengkap }}</h4>
+                        <p class="text-white-50 m-0" style="font-family: monospace;">{{ $p->nip }}</p>
+                    </div>
+
+                    <div class="modal-body p-4 bg-white">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <div class="info-box d-flex align-items-center">
+                                    <div class="me-3 text-primary fs-3"><i class="bi bi-building-fill"></i></div>
+                                    <div>
+                                        <div class="info-label">Lokasi / Unit Kerja</div>
+                                        <div class="info-value">{{ $p->unit_kerja }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="info-box d-flex align-items-center">
+                                    <div class="me-3 text-info fs-3"><i class="bi bi-briefcase-fill"></i></div>
+                                    <div>
+                                        <div class="info-label">Jabatan Fungsional</div>
+                                        <div class="info-value">{{ $p->jabatan }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-box">
+                                    <div class="info-label">Tgl Lahir / Usia</div>
+                                    <div class="info-value">{{ \Carbon\Carbon::parse($p->tanggal_lahir)->translatedFormat('d M Y') }} ({{ $usia }} Thn)</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-box border-danger border-opacity-25 bg-danger bg-opacity-10">
+                                    <div class="info-label text-danger">Estimasi Pensiun</div>
+                                    <div class="info-value text-danger">{{ $tglPensiun->translatedFormat('d M Y') }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer"><button type="submit" class="btn btn-success">Simpan Data</button></div>
-                </form>
+                    
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light w-100 fw-bold rounded-pill border shadow-sm text-muted hover-shadow" data-bs-dismiss="modal">Tutup Profil</button>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+    @endforeach
+
 @endsection
