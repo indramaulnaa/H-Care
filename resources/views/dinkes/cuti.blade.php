@@ -3,73 +3,33 @@
 @section('content')
 
     <style>
-        /* Animasi Masuk (Fade In Up) */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-up { opacity: 0; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.2s; }
+        .delay-1 { animation-delay: 0.1s; } .delay-2 { animation-delay: 0.2s; }
 
-        /* Efek Hover Tombol Glow */
         .btn-glow { transition: all 0.3s ease; }
         .btn-glow:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(13, 110, 253, 0.25) !important; }
 
-        /* Efek Hover Baris Tabel (Floating Row) */
         .hover-row { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); border-left: 4px solid transparent; }
-        .hover-row:hover { 
-            background-color: #f8fbff !important; 
-            transform: scale(1.01); 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
-            border-left: 4px solid #0dcaf0; /* Garis Info Dinkes */
-            z-index: 10; 
-            position: relative;
-        }
+        .hover-row:hover { background-color: #f8fbff !important; transform: scale(1.01); box-shadow: 0 5px 15px rgba(0,0,0,0.05); border-left: 4px solid #0dcaf0; z-index: 10; position: relative; }
 
-        /* ----------------------------------------------------
-           ANIMASI MODAL CANGGIH (POP-UP)
-           ---------------------------------------------------- */
-        .modal-backdrop.show {
-            opacity: 0.5 !important;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            background-color: #000000;
-        }
-        .modal.fade .modal-dialog {
-            transform: scale(0.85) translateY(20px);
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .modal.show .modal-dialog {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-        }
+        .modal-backdrop.show { opacity: 0.5 !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background-color: #000000; }
+        .modal.fade .modal-dialog { transform: scale(0.85) translateY(20px); opacity: 0; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .modal.show .modal-dialog { transform: scale(1) translateY(0); opacity: 1; }
 
-        /* ----------------------------------------------------
-           KOTAK RINGKASAN PEGAWAI
-           ---------------------------------------------------- */
-        .summary-card {
-            background-color: #f8fbff;
-            border: 1px solid #e1ecff;
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 20px;
-        }
+        .summary-card { background-color: #f8fbff; border: 1px solid #e1ecff; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
         .summary-label { font-size: 12px; color: #8392ab; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;}
         .summary-value { font-size: 14.5px; font-weight: 600; color: #212529; }
 
-        /* Radio Button Custom (Tolak / Setuju) */
         .action-radio { display: none; }
-        .action-label {
-            display: block; width: 100%; padding: 12px; border: 2px solid #e2e8f0;
-            border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.3s;
-            font-weight: 600; color: #64748b;
-        }
+        .action-label { display: block; width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.3s; font-weight: 600; color: #64748b; }
         .action-radio:checked + .label-setuju { border-color: #198754; background-color: #198754; color: white; box-shadow: 0 5px 15px rgba(25,135,84,0.3); }
         .action-radio:checked + .label-tolak { border-color: #dc3545; background-color: #dc3545; color: white; box-shadow: 0 5px 15px rgba(220,53,69,0.3); }
-        
         .action-content { display: none; margin-top: 20px; animation: fadeInUp 0.4s forwards; }
+        
+        /* Efek Berkedip (Pulse) untuk penanda tugas baru */
+        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(13, 110, 253, 0); } 100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); } }
+        .pulse-btn { animation: pulse-ring 2s infinite; }
     </style>
 
     <div class="d-flex justify-content-between align-items-center mb-4 animate-fade-up">
@@ -164,23 +124,34 @@
                                 </small>
                             </td>
                             <td>
-                                <a href="{{ asset('storage/'.$c->file_permohonan) }}" target="_blank" class="btn btn-sm btn-light border text-danger fw-bold transition-all shadow-sm">
+                                <a href="{{ asset('storage/'.$c->file_permohonan) }}" target="_blank" class="btn btn-sm btn-light border text-danger fw-bold transition-all shadow-sm hover-scale">
                                     <i class="bi bi-file-earmark-pdf-fill"></i> PDF
                                 </a>
                             </td>
+                            
                             <td>
                                 @if($c->status == 'menunggu') 
-                                    <span class="badge bg-warning text-dark bg-opacity-25 px-3 py-2 rounded-pill border border-warning border-opacity-50 shadow-sm"><i class="bi bi-hourglass-split"></i> Pending</span>
+                                    <span class="badge bg-warning text-dark bg-opacity-25 px-3 py-2 rounded-pill border border-warning border-opacity-50 shadow-sm"><i class="bi bi-hourglass-split"></i> Menunggu Anda</span>
+                                @elseif($c->status == 'diproses') 
+                                    <span class="badge bg-info text-dark bg-opacity-25 px-3 py-2 rounded-pill border border-info border-opacity-50 shadow-sm"><i class="bi bi-search"></i> Sedang Direview</span>
                                 @elseif($c->status == 'disetujui') 
                                     <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill border border-success border-opacity-25 shadow-sm"><i class="bi bi-check2-all"></i> Disetujui</span>
                                 @else 
                                     <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill border border-danger border-opacity-25 shadow-sm"><i class="bi bi-x-circle"></i> Ditolak</span> 
                                 @endif
                             </td>
+
                             <td class="text-center pe-3">
                                 @if($c->status == 'menunggu')
-                                    <button class="btn btn-primary btn-sm rounded-pill px-3 shadow btn-glow w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#verifModal{{ $c->id }}">
-                                        Verifikasi
+                                    <form action="{{ route('cuti.diproses', $c->id) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" class="btn btn-warning btn-sm rounded-pill px-3 shadow-sm btn-glow w-100 fw-bold text-dark">
+                                            <i class="bi bi-lock-fill"></i> Proses Berkas
+                                        </button>
+                                    </form>
+                                @elseif($c->status == 'diproses')
+                                    <button class="btn btn-primary btn-sm rounded-pill px-3 shadow btn-glow w-100 fw-bold pulse-btn" data-bs-toggle="modal" data-bs-target="#verifModal{{ $c->id }}">
+                                        <i class="bi bi-shield-check"></i> Verifikasi Akhir
                                     </button>
                                 @elseif($c->status == 'disetujui')
                                     <button class="btn btn-light btn-sm rounded-pill border text-success w-100" disabled><i class="bi bi-check2"></i> Selesai</button>
@@ -212,13 +183,13 @@
 
 
     @foreach($dataLoop as $c)
-        @if($c->status == 'menunggu')
+        @if($c->status == 'menunggu' || $c->status == 'diproses')
         <div class="modal fade" id="verifModal{{ $c->id }}" tabindex="-1" data-bs-backdrop="static">
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
                     <div class="modal-header text-white border-0 p-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);">
                         <h5 class="modal-title fw-bold m-0"><i class="bi bi-shield-check me-2"></i> Verifikasi Pengajuan Cuti</h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none opacity-75" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none opacity-75 hover-opacity-100" data-bs-dismiss="modal"></button>
                     </div>
                     
                     <div class="modal-body p-4 text-start bg-white">
@@ -286,7 +257,7 @@
                             </div>
 
                             <div class="mt-4 text-end">
-                                <button type="button" class="btn btn-light px-4 rounded-pill fw-bold border me-2" data-bs-dismiss="modal">Batal</button>
+                                <button type="button" class="btn btn-light px-4 rounded-pill fw-bold border me-2 hover-shadow" data-bs-dismiss="modal">Batal</button>
                                 <button type="submit" id="btnSubmitVerif{{ $c->id }}" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm" disabled>Simpan Keputusan <i class="bi bi-send-fill ms-1"></i></button>
                             </div>
                         </form>

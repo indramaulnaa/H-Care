@@ -159,12 +159,18 @@
                             <td>
                                 @if(!$berkas)
                                     <span class="badge bg-light text-secondary border px-2 py-1">Belum Upload</span>
-                                @elseif($berkas->status == 'menunggu')
-                                    <span class="badge bg-warning text-dark bg-opacity-25 px-2 py-1 border border-warning border-opacity-50">Menunggu Verifikasi</span>
+                                @elseif($berkas->status == 'menunggu_tahap_1')
+                                    <span class="badge bg-warning text-dark bg-opacity-25 px-2 py-1 border border-warning border-opacity-50"><i class="bi bi-hourglass-split"></i> Menunggu Verifikasi (Tahap 1)</span>
+                                @elseif($berkas->status == 'ditolak_tahap_1')
+                                    <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 border border-danger border-opacity-25"><i class="bi bi-x-circle"></i> Ditolak (Tahap 1)</span>
+                                @elseif($berkas->status == 'lulus_tahap_1')
+                                    <span class="badge bg-info bg-opacity-10 text-info px-2 py-1 border border-info border-opacity-50"><i class="bi bi-check-circle"></i> Menunggu Upload (Tahap 2)</span>
+                                @elseif($berkas->status == 'menunggu_tahap_2')
+                                    <span class="badge bg-warning text-dark bg-opacity-25 px-2 py-1 border border-warning border-opacity-50"><i class="bi bi-hourglass-split"></i> Menunggu Verifikasi (Tahap 2)</span>
+                                @elseif($berkas->status == 'ditolak_tahap_2')
+                                    <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 border border-danger border-opacity-25"><i class="bi bi-x-circle"></i> Ditolak (Tahap 2)</span>
                                 @elseif($berkas->status == 'disetujui')
-                                    <span class="badge bg-success bg-opacity-10 text-success px-2 py-1 border border-success border-opacity-25">Lengkap</span>
-                                @else
-                                    <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 border border-danger border-opacity-25">Revisi</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success px-2 py-1 border border-success border-opacity-25"><i class="bi bi-check2-all"></i> Lengkap</span>
                                 @endif
                             </td>
 
@@ -183,7 +189,7 @@
                                         @endif
                                     </form>
                                 @else
-                                    @if($berkas && $berkas->status == 'menunggu')
+                                    @if($berkas && ($berkas->status == 'menunggu_tahap_1' || $berkas->status == 'menunggu_tahap_2'))
                                         <button class="btn btn-sm btn-primary px-3 rounded-pill shadow-sm btn-glow w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#verifModal{{ $berkas->id }}">
                                             <i class="bi bi-shield-check"></i> Verifikasi
                                         </button>
@@ -214,12 +220,12 @@
 
     @foreach($dataPensiun as $p)
         @php $berkas = $p->berkas_pensiun; @endphp
-        @if($berkas && $berkas->status == 'menunggu')
+        @if($berkas && ($berkas->status == 'menunggu_tahap_1' || $berkas->status == 'menunggu_tahap_2'))
         <div class="modal fade" id="verifModal{{ $berkas->id }}" tabindex="-1" data-bs-backdrop="static">
             <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
                     <div class="modal-header text-white border-0 p-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);">
-                        <h5 class="modal-title fw-bold m-0"><i class="bi bi-shield-check me-2"></i> Verifikasi Dokumen Pensiun</h5>
+                        <h5 class="modal-title fw-bold m-0"><i class="bi bi-shield-check me-2"></i> Verifikasi Dokumen - @if($berkas->status == 'menunggu_tahap_1') Tahap 1 @else Tahap 2 @endif</h5>
                         <button type="button" class="btn-close btn-close-white shadow-none opacity-75" data-bs-dismiss="modal"></button>
                     </div>
                     
@@ -238,23 +244,32 @@
                             </div>
                         </div>
 
-                        <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-folder2-open"></i> File Dokumen (PDF)</h6>
-                        <div class="row g-2 mb-4">
-                            <div class="col-4">
-                                <a href="{{ asset('storage/'.$berkas->file_sk_cpns) }}" target="_blank" class="btn btn-outline-danger w-100 fw-bold shadow-sm transition-all hover-scale" style="border-radius: 10px;">
-                                    <i class="bi bi-file-pdf fs-5 d-block mb-1"></i> 1. SK CPNS
-                                </a>
-                            </div>
-                            <div class="col-4">
-                                <a href="{{ asset('storage/'.$berkas->file_sk_pangkat) }}" target="_blank" class="btn btn-outline-danger w-100 fw-bold shadow-sm transition-all hover-scale" style="border-radius: 10px;">
-                                    <i class="bi bi-file-pdf fs-5 d-block mb-1"></i> 2. SK Pangkat
-                                </a>
-                            </div>
-                            <div class="col-4">
-                                <a href="{{ asset('storage/'.$berkas->file_karpeg) }}" target="_blank" class="btn btn-outline-danger w-100 fw-bold shadow-sm transition-all hover-scale" style="border-radius: 10px;">
-                                    <i class="bi bi-file-pdf fs-5 d-block mb-1"></i> 3. Karpeg
-                                </a>
-                            </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-dark m-0"><i class="bi bi-folder2-open text-primary"></i> Dokumen yang perlu dicek:</h6>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            @if($berkas->status == 'menunggu_tahap_1')
+                                <div class="col-6">
+                                    <a href="{{ asset('storage/'.$berkas->file_sk_cpns) }}" target="_blank" class="btn btn-outline-primary w-100 p-3 text-start shadow-sm hover-scale transition-all" style="border-radius: 12px;">
+                                        <i class="bi bi-file-pdf fs-3 float-start me-3 text-danger"></i> 
+                                        <div class="fw-bold">File 1</div><small class="text-muted">SK CPNS</small>
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a href="{{ asset('storage/'.$berkas->file_sk_pangkat) }}" target="_blank" class="btn btn-outline-primary w-100 p-3 text-start shadow-sm hover-scale transition-all" style="border-radius: 12px;">
+                                        <i class="bi bi-file-pdf fs-3 float-start me-3 text-danger"></i> 
+                                        <div class="fw-bold">File 2</div><small class="text-muted">SK Pangkat Akhir</small>
+                                    </a>
+                                </div>
+                            @else
+                                <div class="col-12">
+                                    <a href="{{ asset('storage/'.$berkas->file_karpeg) }}" target="_blank" class="btn btn-outline-info w-100 p-3 text-start shadow-sm hover-scale transition-all" style="border-radius: 12px;">
+                                        <i class="bi bi-file-pdf fs-3 float-start me-3 text-danger"></i> 
+                                        <div class="fw-bold">File 3 (Tahap Akhir)</div><small class="text-muted">Kartu Pegawai (Karpeg)</small>
+                                    </a>
+                                </div>
+                            @endif
                         </div>
 
                         <form action="{{ route('pensiun.verifikasi', $berkas->id) }}" method="POST">
@@ -265,25 +280,25 @@
                                 <div class="col-6">
                                     <input type="radio" name="aksi" value="setuju" id="setujuPensiun{{ $berkas->id }}" class="action-radio" onchange="toggleActionPensiun('{{ $berkas->id }}', 'setuju')">
                                     <label class="action-label label-setuju shadow-sm" for="setujuPensiun{{ $berkas->id }}">
-                                        <i class="bi bi-check-circle-fill fs-5 d-block mb-1"></i> Dokumen Lengkap (Setujui)
+                                        <i class="bi bi-check-circle-fill fs-5 d-block mb-1"></i> @if($berkas->status == 'menunggu_tahap_1') Luluskan Tahap 1 @else Setujui Sepenuhnya @endif
                                     </label>
                                 </div>
                                 <div class="col-6">
                                     <input type="radio" name="aksi" value="tolak" id="tolakPensiun{{ $berkas->id }}" class="action-radio" onchange="toggleActionPensiun('{{ $berkas->id }}', 'tolak')">
                                     <label class="action-label label-tolak shadow-sm" for="tolakPensiun{{ $berkas->id }}">
-                                        <i class="bi bi-x-circle-fill fs-5 d-block mb-1"></i> Ada Kekurangan (Revisi)
+                                        <i class="bi bi-x-circle-fill fs-5 d-block mb-1"></i> Tolak & Minta Revisi
                                     </label>
                                 </div>
                             </div>
 
                             <div id="boxTolakPensiun{{ $berkas->id }}" class="action-content p-3 bg-danger bg-opacity-10 border border-danger border-opacity-25 rounded-3">
                                 <label class="form-label fw-bold text-danger"><i class="bi bi-pencil-square"></i> Catatan Kekurangan/Revisi</label>
-                                <textarea name="catatan" id="catatanTolakPensiun{{ $berkas->id }}" class="form-control bg-white shadow-none border-danger border-opacity-50" rows="2" placeholder="Tuliskan file apa yang salah atau kurang jelas..."></textarea>
+                                <textarea name="catatan" id="catatanTolakPensiun{{ $berkas->id }}" class="form-control bg-white shadow-none border-danger border-opacity-50" rows="2" placeholder="Tuliskan letak kesalahannya..."></textarea>
                             </div>
 
                             <div class="mt-4 text-end">
                                 <button type="button" class="btn btn-light px-4 rounded-pill fw-bold border me-2" data-bs-dismiss="modal">Batal</button>
-                                <button type="submit" id="btnSubmitVerifPensiun{{ $berkas->id }}" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm" disabled>Simpan Keputusan <i class="bi bi-send-fill ms-1"></i></button>
+                                <button type="submit" id="btnSubmitVerifPensiun{{ $berkas->id }}" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm btn-glow" disabled>Simpan Keputusan <i class="bi bi-send-fill ms-1"></i></button>
                             </div>
                         </form>
 

@@ -177,16 +177,27 @@
                                     <i class="bi bi-file-earmark-pdf fs-5 align-middle"></i> Lihat
                                 </a>
                             </td>
+                            
                             <td>
-                                @if($c->status == 'menunggu') <span class="badge bg-warning text-dark bg-opacity-25 px-3 py-2 rounded-pill border border-warning border-opacity-25 shadow-sm">Pending</span>
-                                @elseif($c->status == 'disetujui') <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill border border-primary border-opacity-10 shadow-sm">Disetujui</span>
-                                @else <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill border border-danger border-opacity-10 shadow-sm">Ditolak</span> @endif
+                                @if($c->status == 'menunggu') 
+                                    <span class="badge bg-warning text-dark bg-opacity-25 px-3 py-2 rounded-pill border border-warning border-opacity-25 shadow-sm">Pending</span>
+                                @elseif($c->status == 'diproses') 
+                                    <span class="badge bg-info text-dark bg-opacity-25 px-3 py-2 rounded-pill border border-info border-opacity-50 shadow-sm"><i class="bi bi-search"></i> Direview Dinkes</span>
+                                @elseif($c->status == 'disetujui') 
+                                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill border border-primary border-opacity-10 shadow-sm">Disetujui</span>
+                                @else 
+                                    <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill border border-danger border-opacity-10 shadow-sm">Ditolak</span> 
+                                @endif
                             </td>
                             
                             <td class="text-center">
                                 @if($c->status == 'menunggu')
                                     <button class="btn btn-outline-danger btn-sm rounded-pill px-3 shadow-sm transition-all w-100" data-bs-toggle="modal" data-bs-target="#batalModal{{ $c->id }}" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                                         <i class="bi bi-x-circle me-1"></i> Batalkan
+                                    </button>
+                                @elseif($c->status == 'diproses')
+                                    <button class="btn btn-light btn-sm rounded-pill px-3 shadow-sm w-100 text-muted border" disabled title="Tidak bisa dibatalkan karena sedang dibaca oleh Dinkes">
+                                        <i class="bi bi-lock-fill"></i> Terkunci
                                     </button>
                                 @elseif($c->status == 'disetujui' && $c->file_sk_resmi)
                                     <a href="{{ asset('storage/'.$c->file_sk_resmi) }}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-sm transition-all w-100" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">

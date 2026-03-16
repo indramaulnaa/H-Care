@@ -39,6 +39,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Aksi / Proses Dinkes
     Route::post('/pensiun/verifikasi/{id}', [BerkasPensiunController::class, 'verifikasi'])->name('pensiun.verifikasi');
+    Route::post('/cuti/tandai-diproses/{id}', [PengajuanCutiController::class, 'tandaiDiproses'])->name('cuti.diproses');
     Route::post('/cuti/verifikasi/{id}', [PengajuanCutiController::class, 'verifikasi'])->name('cuti.verifikasi');
     Route::post('/dinkes/pensiun/buka-akses/{id}', [DashboardController::class, 'bukaAksesPensiun'])->name('dinkes.buka_akses');
 
