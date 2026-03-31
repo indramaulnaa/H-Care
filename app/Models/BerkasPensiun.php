@@ -17,7 +17,7 @@ class BerkasPensiun extends Model
         'file_sk_pangkat',
         'file_karpeg',
         'status',
-        'catatan_admin',
+        'catatan_dinkes',
     ];
 
     // Relasi balik: Berkas ini milik satu Pegawai

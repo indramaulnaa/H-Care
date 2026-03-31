@@ -89,6 +89,12 @@
                     <i class="bi bi-people"></i> Data Pegawai (Semua)
                 </a>
             </li>
+            
+            <li class="nav-item">
+                <a href="{{ route('dinkes.akun') }}" class="nav-link {{ Request::is('dinkes/akun-puskesmas*') ? 'active' : '' }}">
+                    <i class="bi bi-shield-lock"></i> Akun Puskesmas
+                </a>
+            </li>
         </ul>
 
         <div class="mt-auto pt-4 border-top">

@@ -36,7 +36,7 @@ class BerkasPensiunController extends Controller
                     'file_sk_cpns' => $path1,
                     'file_sk_pangkat' => $path2,
                     'status' => 'menunggu_tahap_1',
-                    'catatan' => null
+                    'catatan_dinkes' => null // Kosongkan catatan saat re-upload
                 ]);
             }
             return back()->with('success', 'Tahap 1 Berhasil: SK CPNS dan SK Pangkat terkirim. Menunggu verifikasi Dinkes.');
@@ -52,7 +52,7 @@ class BerkasPensiunController extends Controller
             $berkas->update([
                 'file_karpeg' => $path3,
                 'status' => 'menunggu_tahap_2',
-                'catatan' => null
+                'catatan_dinkes' => null // Kosongkan catatan saat re-upload
             ]);
             return back()->with('success', 'Tahap 2 Berhasil: Kartu Pegawai (Karpeg) terkirim. Menunggu verifikasi akhir.');
         }
@@ -69,20 +69,22 @@ class BerkasPensiunController extends Controller
         // VERIFIKASI TAHAP 1
         if ($berkas->status == 'menunggu_tahap_1') {
             if ($aksi == 'setuju') {
-                $berkas->update(['status' => 'lulus_tahap_1', 'catatan' => null]);
+                $berkas->update(['status' => 'lulus_tahap_1', 'catatan_dinkes' => null]);
                 return back()->with('success', 'Tahap 1 Disetujui. Puskesmas kini bisa mengupload Karpeg.');
             } else {
-                $berkas->update(['status' => 'ditolak_tahap_1', 'catatan' => $request->catatan]);
+                // Simpan alasan penolakan ke kolom catatan_dinkes
+                $berkas->update(['status' => 'ditolak_tahap_1', 'catatan_dinkes' => $request->catatan]);
                 return back()->with('success', 'Tahap 1 Ditolak. Dikembalikan ke Puskesmas untuk revisi.');
             }
         } 
         // VERIFIKASI TAHAP 2
         elseif ($berkas->status == 'menunggu_tahap_2') {
             if ($aksi == 'setuju') {
-                $berkas->update(['status' => 'disetujui', 'catatan' => null]);
+                $berkas->update(['status' => 'disetujui', 'catatan_dinkes' => null]);
                 return back()->with('success', 'Tahap 2 Disetujui. Proses pensiun SELESAI sepenuhnya!');
             } else {
-                $berkas->update(['status' => 'ditolak_tahap_2', 'catatan' => $request->catatan]);
+                // Simpan alasan penolakan ke kolom catatan_dinkes
+                $berkas->update(['status' => 'ditolak_tahap_2', 'catatan_dinkes' => $request->catatan]);
                 return back()->with('success', 'Tahap 2 Ditolak. Dikembalikan ke Puskesmas untuk revisi Karpeg.');
             }
         }
